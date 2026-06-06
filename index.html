@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Globe Equator Explorer</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      background: #050510;
+      color: #dde8ff;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── SIDEBAR ─────────────────────────────────────── */
+    #sidebar {
+      width: 300px;
+      min-width: 300px;
+      background: rgba(8, 8, 24, 0.97);
+      border-right: 1px solid rgba(80, 130, 255, 0.25);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      z-index: 10;
+    }
+
+    .sidebar-header {
+      padding: 18px 16px 14px;
+      background: linear-gradient(135deg, rgba(30,60,180,0.3), rgba(10,10,40,0.5));
+      border-bottom: 1px solid rgba(80,130,255,0.2);
+      flex-shrink: 0;
+    }
+    .sidebar-header h1 {
+      font-size: 1.05em;
+      font-weight: 700;
+      color: #7ab0ff;
+      letter-spacing: 0.5px;
+    }
+    .sidebar-header p {
+      font-size: 0.7em;
+      color: #6677aa;
+      margin-top: 3px;
+      line-height: 1.4;
+    }
+
+    .sidebar-body {
+      flex: 1;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(80,130,255,0.3) transparent;
+    }
+
+    .section {
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(80,130,255,0.12);
+    }
+    .section-title {
+      font-size: 0.62em;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #4466aa;
+      margin-bottom: 8px;
+    }
+
+    /* landmarks */
+    .lm-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 7px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.15s;
+      margin-bottom: 2px;
+      user-select: none;
+    }
+    .lm-item:hover { background: rgba(80,130,255,0.1); }
+    .lm-item.selected { background: rgba(100,180,255,0.14); }
+    .lm-dot {
+      width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
+      transition: box-shadow 0.2s;
+    }
+    .lm-item.selected .lm-dot { box-shadow: 0 0 7px currentColor; }
+    .lm-name { font-size: 0.78em; color: #bdd0ff; flex: 1; }
+    .lm-coords { font-size: 0.62em; color: #445577; white-space: nowrap; }
+    .lm-remove {
+      font-size: 0.9em; color: #334; cursor: pointer;
+      padding: 0 3px; border-radius: 3px; transition: color 0.2s;
+      display: none;
+    }
+    .lm-item:hover .lm-remove { display: block; }
+    .lm-remove:hover { color: #ff6666; }
+
+    /* buttons */
+    .btn {
+      width: 100%; padding: 8px 10px;
+      border: 1px solid rgba(80,130,255,0.35);
+      background: rgba(40,80,220,0.12);
+      color: #7ab0ff;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 0.78em;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      transition: all 0.18s;
+      margin-bottom: 6px;
+      text-align: center;
+    }
+    .btn:hover:not(:disabled) { background: rgba(40,80,220,0.28); border-color: rgba(80,130,255,0.7); }
+    .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .btn.active { background: rgba(255,180,50,0.2); border-color: rgba(255,180,50,0.6); color: #ffcc66; }
+    .btn-red { border-color: rgba(255,70,70,0.3); background: rgba(180,40,40,0.1); color: #ff8888; }
+    .btn-red:hover:not(:disabled) { background: rgba(180,40,40,0.22); }
+    .btn-green { border-color: rgba(50,220,120,0.4); background: rgba(30,150,80,0.12); color: #66ffaa; }
+    .btn-green:hover:not(:disabled) { background: rgba(30,150,80,0.25); }
+
+    .add-mode-banner {
+      display: none;
+      padding: 7px 10px;
+      background: rgba(255,180,50,0.1);
+      border: 1px solid rgba(255,180,50,0.35);
+      border-radius: 5px;
+      font-size: 0.72em;
+      color: #ffcc66;
+      text-align: center;
+      margin-bottom: 6px;
+    }
+
+    .sel-count {
+      font-size: 0.72em; color: #5566aa;
+      text-align: center; padding: 4px 0 6px;
+    }
+
+    /* equator lines list */
+    .line-entry {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(80,130,255,0.12);
+      border-radius: 6px;
+      margin-bottom: 8px;
+      overflow: hidden;
+    }
+    .line-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 10px;
+    }
+    .line-swatch { width: 28px; height: 3px; border-radius: 2px; flex-shrink: 0; }
+    .line-title { font-size: 0.78em; font-weight: 700; color: #bdd0ff; flex: 1; }
+    .line-subtitle { font-size: 0.66em; color: #445577; }
+    .line-del {
+      cursor: pointer; color: #334455; font-size: 1em;
+      padding: 2px 5px; border-radius: 3px; transition: color 0.2s; flex-shrink: 0;
+    }
+    .line-del:hover { color: #ff6666; }
+    .alignment-table { width: 100%; padding: 0 10px 8px; }
+    .al-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 3px 0; font-size: 0.72em;
+      border-top: 1px solid rgba(80,130,255,0.07);
+    }
+    .al-name { color: #8899bb; }
+    .al-score { font-family: 'Courier New', monospace; font-weight: 700; }
+    .good { color: #44ee88; }
+    .ok   { color: #ffdd44; }
+    .bad  { color: #ff6644; }
+
+    .empty-msg { font-size: 0.74em; color: #334466; text-align: center; padding: 10px 0; }
+
+    /* ── GLOBE ───────────────────────────────────────── */
+    #globe-wrap { flex: 1; position: relative; overflow: hidden; }
+
+    #info-overlay {
+      position: absolute; bottom: 18px; right: 18px;
+      background: rgba(8,8,24,0.85);
+      border: 1px solid rgba(80,130,255,0.2);
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 0.72em;
+      color: #5566aa;
+      pointer-events: none;
+      line-height: 1.7;
+    }
+    #info-overlay b { color: #7ab0ff; }
+  </style>
+</head>
+<body>
+
+<div id="sidebar">
+  <div class="sidebar-header">
+    <h1>🌍 Globe Equator Explorer</h1>
+    <p>Select landmarks and draw great-circle "equator" lines to investigate alignments.</p>
+  </div>
+  <div class="sidebar-body">
+
+    <div class="section">
+      <div class="section-title">Ancient Landmarks</div>
+      <div id="lm-ancient"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Modern Cities</div>
+      <div id="lm-cities"></div>
+    </div>
+
+    <div class="section" id="section-custom" style="display:none">
+      <div class="section-title">Custom Points</div>
+      <div id="lm-custom"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">Draw a Line</div>
+      <div id="add-banner" class="add-mode-banner">Click the globe to place points — click ✕ Cancel when done</div>
+      <div id="sel-count" class="sel-count">Select 2 or more landmarks to draw a line</div>
+      <button class="btn btn-green" id="draw-btn" disabled>Draw Great-Circle Line</button>
+      <button class="btn" id="add-btn">+ Add Custom Point on Globe</button>
+      <button class="btn btn-red" id="clear-btn">Clear Selection</button>
+    </div>
+
+    <div class="section" style="border-bottom:none">
+      <div class="section-title">Lines &amp; Alignment</div>
+      <div id="lines-list"><div class="empty-msg">No lines drawn yet</div></div>
+    </div>
+
+  </div>
+</div>
+
+<div id="globe-wrap">
+  <div id="info-overlay">
+    <b>Rotate</b> · drag &nbsp;|&nbsp; <b>Zoom</b> · scroll<br>
+    <b>Select</b> · click a landmark
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/globe.gl@2"></script>
+<script>
+// ════════════════════════════════════════════════════════
+//  DATA
+// ════════════════════════════════════════════════════════
+const MODERN_CITIES = [
+  { id:101, name:'New York',     lat: 40.7128,  lng: -74.0060,  color:'#44aaff' },
+  { id:102, name:'London',       lat: 51.5074,  lng:  -0.1278,  color:'#44aaff' },
+  { id:103, name:'Paris',        lat: 48.8566,  lng:   2.3522,  color:'#44aaff' },
+  { id:104, name:'Tokyo',        lat: 35.6762,  lng: 139.6503,  color:'#44aaff' },
+  { id:105, name:'Beijing',      lat: 39.9042,  lng: 116.4074,  color:'#44aaff' },
+  { id:106, name:'Sydney',       lat:-33.8688,  lng: 151.2093,  color:'#44aaff' },
+  { id:107, name:'Dubai',        lat: 25.2048,  lng:  55.2708,  color:'#44aaff' },
+  { id:108, name:'Mumbai',       lat: 19.0760,  lng:  72.8777,  color:'#44aaff' },
+  { id:109, name:'São Paulo',    lat:-23.5558,  lng: -46.6396,  color:'#44aaff' },
+  { id:110, name:'Cairo',        lat: 30.0444,  lng:  31.2357,  color:'#44aaff' },
+  { id:111, name:'Moscow',       lat: 55.7558,  lng:  37.6173,  color:'#44aaff' },
+  { id:112, name:'Los Angeles',  lat: 34.0522,  lng:-118.2437,  color:'#44aaff' },
+  { id:113, name:'Singapore',    lat:  1.3521,  lng: 103.8198,  color:'#44aaff' },
+  { id:114, name:'Toronto',      lat: 43.6532,  lng: -79.3832,  color:'#44aaff' },
+  { id:115, name:'Cape Town',    lat:-33.9249,  lng:  18.4241,  color:'#44aaff' },
+];
+
+const BASE_LANDMARKS = [
+  { id:1,  name:'Great Pyramid of Giza',   lat: 29.9792,  lng:  31.1342,  color:'#ffaa00' },
+  { id:2,  name:'Stonehenge',              lat: 51.1789,  lng:  -1.8262,  color:'#ffaa00' },
+  { id:3,  name:'Easter Island (Moai)',    lat:-27.1127,  lng:-109.3497,  color:'#ffaa00' },
+  { id:4,  name:'Machu Picchu',            lat:-13.1631,  lng: -72.5450,  color:'#ffaa00' },
+  { id:5,  name:'Angkor Wat',              lat: 13.4125,  lng: 103.8670,  color:'#ffaa00' },
+  { id:6,  name:'Nazca Lines',             lat:-14.7390,  lng: -75.1300,  color:'#ffaa00' },
+  { id:7,  name:'Petra',                   lat: 30.3285,  lng:  35.4444,  color:'#ffaa00' },
+  { id:8,  name:'Mohenjo-daro',            lat: 27.3244,  lng:  68.1376,  color:'#ffaa00' },
+  { id:9,  name:'Göbekli Tepe',            lat: 37.2233,  lng:  38.9224,  color:'#ffaa00' },
+  { id:10, name:'Teotihuacan',             lat: 19.6925,  lng: -98.8438,  color:'#ffaa00' },
+  { id:11, name:'Chichen Itza',            lat: 20.6843,  lng: -88.5678,  color:'#ffaa00' },
+  { id:12, name:'Tiwanaku',               lat:-16.5534,  lng: -68.6730,  color:'#ffaa00' },
+  { id:13, name:'Nan Madol',              lat:  6.8456,  lng: 158.3312,  color:'#ffaa00' },
+  { id:14, name:'Ollantaytambo',          lat:-13.2584,  lng: -72.2626,  color:'#ffaa00' },
+  { id:15, name:'Sacsayhuamán',           lat:-13.5095,  lng: -71.9824,  color:'#ffaa00' },
+];
+
+let allPoints = [...BASE_LANDMARKS, ...MODERN_CITIES].map(l => ({ ...l }));
+let selected  = new Set();
+let lines     = [];
+let customIdx = 0;
+let addMode   = false;
+
+const LINE_COLORS = ['#ff4488','#44ffaa','#ffcc00','#44aaff','#ff8844','#cc44ff','#00ffcc','#ff6688'];
+let colorCursor = 0;
+
+// ════════════════════════════════════════════════════════
+//  MATH
+// ════════════════════════════════════════════════════════
+const toRad = d => d * Math.PI / 180;
+const toDeg = r => r * 180 / Math.PI;
+
+function latLon2Vec(lat, lon) {
+  const φ = toRad(lat), λ = toRad(lon);
+  return [Math.cos(φ)*Math.cos(λ), Math.cos(φ)*Math.sin(λ), Math.sin(φ)];
+}
+
+function vec2LatLon(v) {
+  return [toDeg(Math.asin(Math.max(-1, Math.min(1, v[2])))), toDeg(Math.atan2(v[1], v[0]))];
+}
+
+function cross(a, b) {
+  return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+}
+
+function dot(a, b) { return a[0]*b[0]+a[1]*b[1]+a[2]*b[2]; }
+
+function norm(v) {
+  const l = Math.sqrt(dot(v,v));
+  return l < 1e-12 ? [0,0,1] : [v[0]/l, v[1]/l, v[2]/l];
+}
+
+// Great-circle normal from two points
+function gcNormal(lat1,lon1,lat2,lon2) {
+  return norm(cross(latLon2Vec(lat1,lon1), latLon2Vec(lat2,lon2)));
+}
+
+// Angular deviation of a point from a great circle (degrees)
+function devFromGC(lat, lon, normal) {
+  return toDeg(Math.asin(Math.max(-1, Math.min(1, Math.abs(dot(latLon2Vec(lat,lon), normal))))));
+}
+
+// Best-fit normal for N >= 2 points
+function bestFitNormal(pts) {
+  let acc = [0,0,0];
+  for (let i = 0; i < pts.length; i++)
+    for (let j = i+1; j < pts.length; j++) {
+      let n = norm(cross(pts[i], pts[j]));
+      if (dot(n, acc) < 0) n = [-n[0],-n[1],-n[2]];
+      acc[0]+=n[0]; acc[1]+=n[1]; acc[2]+=n[2];
+    }
+  return norm(acc);
+}
+
+// Generate 720-point great circle through p1 and p2
+function greatCirclePath(lat1,lon1,lat2,lon2, N=720) {
+  const p1 = norm(latLon2Vec(lat1,lon1));
+  const n  = norm(cross(p1, norm(latLon2Vec(lat2,lon2))));
+  const b  = norm(cross(n, p1));
+  const pts = [];
+  for (let i = 0; i <= N; i++) {
+    const a = (i/N)*2*Math.PI;
+    const c = Math.cos(a), s = Math.sin(a);
+    const v = norm([p1[0]*c+b[0]*s, p1[1]*c+b[1]*s, p1[2]*c+b[2]*s]);
+    pts.push(vec2LatLon(v));
+  }
+  return pts;
+}
+
+// ════════════════════════════════════════════════════════
+//  GLOBE
+// ════════════════════════════════════════════════════════
+const wrap = document.getElementById('globe-wrap');
+
+const globe = Globe()
+  .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
+  .backgroundImageUrl('https://unpkg.com/three-globe/example/img/night-sky.png')
+  .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
+  .showAtmosphere(true)
+  .atmosphereColor('rgba(80,140,255,0.25)')
+  .atmosphereAltitude(0.18)
+  .width(window.innerWidth - 300)
+  .height(window.innerHeight)
+  .onGlobeClick(({ lat, lng }) => {
+    if (!addMode) return;
+    customIdx++;
+    const p = { id: 10000+customIdx, name:`Custom ${customIdx}`, lat, lng, color:'#44ffff', custom:true };
+    allPoints.push(p);
+    selected.add(p.id);
+    console.log('Custom point added. selected.size =', selected.size);
+    renderAll();
+  })
+  .onPointClick(pt => {
+    globe.controls().autoRotate = false;
+    if (selected.has(pt.id)) selected.delete(pt.id);
+    else selected.add(pt.id);
+    console.log('Point clicked:', pt.name, '| selected.size =', selected.size);
+    renderAll();
+  })
+  (wrap);
+
+globe.controls().autoRotate      = true;
+globe.controls().autoRotateSpeed = 0.25;
+
+function renderAll() {
+  renderPoints();
+  renderPaths();
+  renderLabels();
+  renderSidebar();
+}
+
+function renderPoints() {
+  globe
+    .pointsData(allPoints)
+    .pointLat(d => d.lat)
+    .pointLng(d => d.lng)
+    .pointColor(d => selected.has(d.id) ? '#ffffff' : d.color)
+    .pointRadius(d => selected.has(d.id) ? 0.55 : 0.3)
+    .pointAltitude(d => selected.has(d.id) ? 0.025 : 0.006)
+    .pointLabel(d =>
+      `<div style="background:rgba(5,10,30,.92);border:1px solid rgba(80,130,255,.5);
+       padding:7px 11px;border-radius:6px;font-family:Segoe UI;color:#bdd0ff;font-size:13px;
+       pointer-events:none">
+       <b style="color:#fff">${d.name}</b><br>
+       <span style="color:#4466aa;font-size:11px">${d.lat.toFixed(4)}°, ${d.lng.toFixed(4)}°</span>
+       </div>`);
+}
+
+function renderPaths() {
+  globe
+    .pathsData(lines)
+    .pathPoints(d => d.coords)
+    .pathPointLat(p => p[0])
+    .pathPointLng(p => p[1])
+    .pathColor(d => d.color)
+    .pathStroke(2)
+    .pathDashLength(0.05)
+    .pathDashGap(0.02)
+    .pathDashAnimateTime(8000);
+}
+
+function renderLabels() {
+  const shown = allPoints.filter(p => selected.has(p.id));
+  globe
+    .labelsData(shown)
+    .labelLat(d => d.lat)
+    .labelLng(d => d.lng)
+    .labelText(d => d.name)
+    .labelSize(0.42)
+    .labelColor(() => 'rgba(255,255,255,0.9)')
+    .labelDotRadius(0)
+    .labelAltitude(0.03)
+    .labelResolution(2);
+}
+
+// ════════════════════════════════════════════════════════
+//  SIDEBAR
+// ════════════════════════════════════════════════════════
+function buildList(points, elementId) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+  el.innerHTML = '';
+  points.forEach(lm => {
+    const div = document.createElement('div');
+    div.className = 'lm-item' + (selected.has(lm.id) ? ' selected' : '');
+    div.innerHTML =
+      `<div class="lm-dot" style="background:${lm.color};color:${lm.color}"></div>
+       <span class="lm-name">${lm.name}</span>
+       <span class="lm-coords">${fmt(lm.lat)}, ${fmt(lm.lng)}</span>
+       ${lm.custom ? `<span class="lm-remove" title="Remove">✕</span>` : ''}`;
+    div.onclick = e => {
+      if (e.target.classList.contains('lm-remove')) {
+        allPoints = allPoints.filter(p => p.id !== lm.id);
+        selected.delete(lm.id);
+        renderAll();
+        return;
+      }
+      globe.controls().autoRotate = false;
+      if (selected.has(lm.id)) selected.delete(lm.id);
+      else {
+        selected.add(lm.id);
+        globe.pointOfView({ lat: lm.lat, lng: lm.lng, altitude: 1.8 }, 900);
+      }
+      renderAll();
+    };
+    el.appendChild(div);
+  });
+}
+
+function buildLandmarkList() {
+  buildList(allPoints.filter(p => p.id <= 15), 'lm-ancient');
+  buildList(allPoints.filter(p => p.id >= 101 && p.id <= 115), 'lm-cities');
+  const custom = allPoints.filter(p => p.custom);
+  document.getElementById('section-custom').style.display = custom.length ? 'block' : 'none';
+  buildList(custom, 'lm-custom');
+}
+
+function buildLinesList() {
+  const el = document.getElementById('lines-list');
+  el.innerHTML = '';
+  if (lines.length === 0) {
+    el.innerHTML = '<div class="empty-msg">No lines drawn yet</div>';
+    return;
+  }
+  lines.forEach((line, i) => {
+    const entry = document.createElement('div');
+    entry.className = 'line-entry';
+    entry.innerHTML =
+      `<div class="line-header">
+         <div class="line-swatch" style="background:${line.color}"></div>
+         <div style="flex:1">
+           <div class="line-title">${line.name}</div>
+           <div class="line-subtitle">${line.pts.length} pts · max ${line.maxDev.toFixed(2)}° off</div>
+         </div>
+         <div class="line-del" data-i="${i}" title="Remove line">✕</div>
+       </div>
+       <table class="alignment-table"></table>`;
+    const tbl = entry.querySelector('table');
+    line.align.forEach(a => {
+      const cls = a.dev < 1 ? 'good' : a.dev < 5 ? 'ok' : 'bad';
+      const tr = document.createElement('div');
+      tr.className = 'al-row';
+      tr.innerHTML = `<span class="al-name">${a.name}</span><span class="al-score ${cls}">${a.dev.toFixed(2)}°</span>`;
+      tbl.appendChild(tr);
+    });
+    entry.querySelector('.line-del').onclick = () => {
+      lines.splice(i, 1);
+      renderAll();
+    };
+    el.appendChild(entry);
+  });
+}
+
+function updateControls() {
+  const n = selected.size;
+  const countEl = document.getElementById('sel-count');
+  const drawBtn = document.getElementById('draw-btn');
+  if (n === 0)      { countEl.textContent = 'Select 2 or more landmarks to draw a line'; drawBtn.disabled = true; }
+  else if (n === 1) { countEl.textContent = '1 landmark selected — select at least one more'; drawBtn.disabled = true; }
+  else              { countEl.textContent = `${n} landmarks selected`; drawBtn.disabled = false; }
+}
+
+function renderSidebar() {
+  buildLandmarkList();
+  buildLinesList();
+  updateControls();
+}
+
+function fmt(v) { return (v >= 0 ? '+' : '') + v.toFixed(2) + '°'; }
+
+// ════════════════════════════════════════════════════════
+//  ACTIONS
+// ════════════════════════════════════════════════════════
+document.getElementById('draw-btn').onclick = () => {
+  const pts = allPoints.filter(p => selected.has(p.id));
+  if (pts.length < 2) return;
+  const color = LINE_COLORS[colorCursor++ % LINE_COLORS.length];
+  const vecs  = pts.map(p => norm(latLon2Vec(p.lat, p.lng)));
+  const normal = pts.length === 2
+    ? gcNormal(pts[0].lat, pts[0].lng, pts[1].lat, pts[1].lng)
+    : bestFitNormal(vecs);
+  const coords = greatCirclePath(pts[0].lat, pts[0].lng, pts[1].lat, pts[1].lng);
+  const align  = pts.map(p => ({ name: p.name, dev: devFromGC(p.lat, p.lng, normal) }));
+  const maxDev = Math.max(...align.map(a => a.dev));
+  lines.push({ name:`Line ${lines.length+1}`, color, coords, pts, normal, align, maxDev });
+  selected.clear();
+  renderAll();
+};
+
+document.getElementById('clear-btn').onclick = () => {
+  selected.clear();
+  stopAdd();
+  renderAll();
+};
+
+document.getElementById('add-btn').onclick = () => {
+  if (addMode) { stopAdd(); return; }
+  addMode = true;
+  document.getElementById('add-banner').style.display = 'block';
+  document.getElementById('add-btn').textContent = '✕ Cancel Custom Point';
+  document.getElementById('add-btn').classList.add('active');
+  globe.controls().autoRotate = false;
+};
+
+function stopAdd() {
+  addMode = false;
+  document.getElementById('add-banner').style.display = 'none';
+  document.getElementById('add-btn').textContent = '+ Add Custom Point on Globe';
+  document.getElementById('add-btn').classList.remove('active');
+}
+
+// ════════════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════════════
+renderAll();
+
+window.addEventListener('resize', () => {
+  globe.width(window.innerWidth - 300).height(window.innerHeight);
+});
+</script>
+</body>
+</html>
